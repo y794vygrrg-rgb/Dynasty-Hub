@@ -1,289 +1,351 @@
 {
   "season": 2026,
   "scoring": "half_ppr",
-  "source": "FantasyPros Public API",
-  "updated_at": "2026-08-18T23:16:19.454226+00:00",
+  "source": "FantasyPros Public API \u00e2\u0080\u0094 preseason projections + HALF ECR",
+  "updated_at": "2026-08-18T23:28:53.917483+00:00",
   "players": [
     {
       "sleeper_id": "4984",
       "name": "Josh Allen",
       "team": "BUF",
       "position": "QB",
-      "points_half": 372.46
+      "points_half": 372.46,
+      "fpid": 17298
     },
     {
       "sleeper_id": "4881",
       "name": "Lamar Jackson",
       "team": "BAL",
       "position": "QB",
-      "points_half": 324.91
+      "points_half": 324.91,
+      "fpid": 17233
     },
     {
       "sleeper_id": "11564",
       "name": "Drake Maye",
       "team": "NE",
       "position": "QB",
-      "points_half": 322.96
+      "points_half": 322.96,
+      "fpid": 23046
     },
     {
       "sleeper_id": "11566",
       "name": "Jayden Daniels",
       "team": "WAS",
       "position": "QB",
-      "points_half": 322.56
+      "points_half": 322.56,
+      "fpid": 22902
     },
     {
       "sleeper_id": "6904",
       "name": "Jalen Hurts",
       "team": "PHI",
       "position": "QB",
-      "points_half": 320.47
+      "points_half": 320.47,
+      "fpid": 19275
     },
     {
       "sleeper_id": "6770",
       "name": "Joe Burrow",
       "team": "CIN",
       "position": "QB",
-      "points_half": 310.9
+      "points_half": 310.9,
+      "fpid": 19196
     },
     {
       "sleeper_id": "12508",
       "name": "Jaxson Dart",
       "team": "NYG",
       "position": "QB",
-      "points_half": 310.02
+      "points_half": 310.02,
+      "fpid": 23160
     },
     {
       "sleeper_id": "8183",
       "name": "Brock Purdy",
       "team": "SF",
       "position": "QB",
-      "points_half": 307.5
+      "points_half": 307.5,
+      "fpid": 19797
     },
     {
       "sleeper_id": "7523",
       "name": "Trevor Lawrence",
       "team": "JAC",
       "position": "QB",
-      "points_half": 306.2
+      "points_half": 306.2,
+      "fpid": 19780
     },
     {
       "sleeper_id": "3294",
       "name": "Dak Prescott",
       "team": "DAL",
       "position": "QB",
-      "points_half": 306.18
+      "points_half": 306.18,
+      "fpid": 15600
     },
     {
       "sleeper_id": "9221",
       "name": "Jahmyr Gibbs",
       "team": "DET",
       "position": "RB",
-      "points_half": 337.28
+      "points_half": 337.28,
+      "fpid": 22968,
+      "rank_ecr": 1.0,
+      "pos_rank": "RB1"
     },
     {
       "sleeper_id": "9509",
       "name": "Bijan Robinson",
       "team": "ATL",
       "position": "RB",
-      "points_half": 329.88
+      "points_half": 329.88,
+      "fpid": 23133,
+      "rank_ecr": 2.0,
+      "pos_rank": "RB2"
     },
     {
       "sleeper_id": "6813",
       "name": "Jonathan Taylor",
       "team": "IND",
       "position": "RB",
-      "points_half": 288.69
+      "points_half": 288.69,
+      "fpid": 19217,
+      "rank_ecr": 7.0,
+      "pos_rank": "RB3"
     },
     {
       "sleeper_id": "4034",
       "name": "Christian McCaffrey",
       "team": "SF",
       "position": "RB",
-      "points_half": 295.61
+      "points_half": 295.61,
+      "fpid": 16393,
+      "rank_ecr": 8.0,
+      "pos_rank": "RB4"
     },
     {
       "sleeper_id": "3198",
       "name": "Derrick Henry",
       "team": "BAL",
       "position": "RB",
-      "points_half": 264.67
+      "points_half": 264.67,
+      "fpid": 15514
     },
     {
       "sleeper_id": "8138",
       "name": "James Cook III",
       "team": "BUF",
       "position": "RB",
-      "points_half": 253.93
+      "points_half": 253.93,
+      "fpid": 22958,
+      "rank_ecr": 10.0,
+      "pos_rank": "RB5"
     },
     {
       "sleeper_id": "9226",
       "name": "De'Von Achane",
       "team": "MIA",
       "position": "RB",
-      "points_half": 259.73
+      "points_half": 259.73,
+      "fpid": 23136
     },
     {
       "sleeper_id": "4866",
       "name": "Saquon Barkley",
       "team": "PHI",
       "position": "RB",
-      "points_half": 243.8
+      "points_half": 243.8,
+      "fpid": 17240
     },
     {
       "sleeper_id": "12527",
       "name": "Ashton Jeanty",
       "team": "LV",
       "position": "RB",
-      "points_half": 247.34
+      "points_half": 247.34,
+      "fpid": 25989
     },
     {
       "sleeper_id": "9224",
       "name": "Chase Brown",
       "team": "CIN",
       "position": "RB",
-      "points_half": 246.64
+      "points_half": 246.64,
+      "fpid": 25324
     },
     {
       "sleeper_id": "9493",
       "name": "Puka Nacua",
       "team": "LAR",
       "position": "WR",
-      "points_half": 281.3
+      "points_half": 281.3,
+      "fpid": 23180,
+      "rank_ecr": 4.0,
+      "pos_rank": "WR2"
     },
     {
       "sleeper_id": "7564",
       "name": "Ja'Marr Chase",
       "team": "CIN",
       "position": "WR",
-      "points_half": 275.42
+      "points_half": 275.42,
+      "fpid": 19788,
+      "rank_ecr": 3.0,
+      "pos_rank": "WR1"
     },
     {
       "sleeper_id": "9488",
       "name": "Jaxon Smith-Njigba",
       "team": "SEA",
       "position": "WR",
-      "points_half": 268.69
+      "points_half": 268.69,
+      "fpid": 23070,
+      "rank_ecr": 5.0,
+      "pos_rank": "WR3"
     },
     {
       "sleeper_id": "7547",
       "name": "Amon-Ra St. Brown",
       "team": "DET",
       "position": "WR",
-      "points_half": 261.16
+      "points_half": 261.16,
+      "fpid": 19799,
+      "rank_ecr": 6.0,
+      "pos_rank": "WR4"
     },
     {
       "sleeper_id": "8112",
       "name": "Drake London",
       "team": "ATL",
       "position": "WR",
-      "points_half": 236.24
+      "points_half": 236.24,
+      "fpid": 23163
     },
     {
       "sleeper_id": "6786",
       "name": "CeeDee Lamb",
       "team": "DAL",
       "position": "WR",
-      "points_half": 224.26
+      "points_half": 224.26,
+      "fpid": 19202,
+      "rank_ecr": 9.0,
+      "pos_rank": "WR5"
     },
     {
       "sleeper_id": "10229",
       "name": "Rashee Rice",
       "team": "KC",
       "position": "WR",
-      "points_half": 224.52
+      "points_half": 224.52,
+      "fpid": 23113
     },
     {
       "sleeper_id": "6794",
       "name": "Justin Jefferson",
       "team": "MIN",
       "position": "WR",
-      "points_half": 223.36
+      "points_half": 223.36,
+      "fpid": 19236
     },
     {
       "sleeper_id": "8137",
       "name": "George Pickens",
       "team": "DAL",
       "position": "WR",
-      "points_half": 210.74
+      "points_half": 210.74,
+      "fpid": 22963
     },
     {
       "sleeper_id": "5859",
       "name": "A.J. Brown",
       "team": "NE",
       "position": "WR",
-      "points_half": 211.34
+      "points_half": 211.34,
+      "fpid": 18218
     },
     {
       "sleeper_id": "11604",
       "name": "Brock Bowers",
       "team": "LV",
       "position": "TE",
-      "points_half": 195.77
+      "points_half": 195.77,
+      "fpid": 22955
     },
     {
       "sleeper_id": "8130",
       "name": "Trey McBride",
       "team": "ARI",
       "position": "TE",
-      "points_half": 199.81
+      "points_half": 199.81,
+      "fpid": 22936
     },
     {
       "sleeper_id": "12517",
       "name": "Colston Loveland",
       "team": "CHI",
       "position": "TE",
-      "points_half": 171.86
+      "points_half": 171.86,
+      "fpid": 26006
     },
     {
       "sleeper_id": "12518",
       "name": "Tyler Warren",
       "team": "IND",
       "position": "TE",
-      "points_half": 159.71
+      "points_half": 159.71,
+      "fpid": 26434
     },
     {
       "sleeper_id": "9484",
       "name": "Tucker Kraft",
       "team": "GB",
       "position": "TE",
-      "points_half": 147.66
+      "points_half": 147.66,
+      "fpid": 25298
     },
     {
       "sleeper_id": "7553",
       "name": "Kyle Pitts Sr.",
       "team": "ATL",
       "position": "TE",
-      "points_half": 155.91
+      "points_half": 155.91,
+      "fpid": 20164
     },
     {
       "sleeper_id": "5022",
       "name": "Dallas Goedert",
       "team": "PHI",
       "position": "TE",
-      "points_half": 146.65
+      "points_half": 146.65,
+      "fpid": 17270
     },
     {
       "sleeper_id": "10859",
       "name": "Sam LaPorta",
       "team": "DET",
       "position": "TE",
-      "points_half": 148.93
+      "points_half": 148.93,
+      "fpid": 22978
     },
     {
       "sleeper_id": "12506",
       "name": "Harold Fannin Jr.",
       "team": "CLE",
       "position": "TE",
-      "points_half": 151.81
+      "points_half": 151.81,
+      "fpid": 27050
     },
     {
       "sleeper_id": "4217",
       "name": "George Kittle",
       "team": "SF",
       "position": "TE",
-      "points_half": 142.53
+      "points_half": 142.53,
+      "fpid": 16499
     }
   ],
+  "projected_count": 40,
+  "ranked_count": 10,
   "unmatched_count": 0
 }
