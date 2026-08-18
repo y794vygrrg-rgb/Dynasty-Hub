@@ -217,12 +217,54 @@ async function loadHistoricalDrafts(){
 
 
 /* V2.8 */
-async function loadProjectionData(){S.projections={};S.projectionMeta={available:false,source:"Fallback model"};try{const raw=await get("data/projections.json?v=2.8"),rows=Array.isArray(raw)?raw:(raw.players||[]);for(const x of rows){const sid=String(x.sleeper_id??x.player_id??"");if(sid)S.projections[sid]=x}if(Object.keys(S.projections).length)S.projectionMeta={available:true,source:raw.source||"Projection feed",updated_at:raw.updated_at||null}}catch{}}
+async function loadProjectionData(){
+  S.projections={};
+  S.projectionMeta={available:false,source:"Fallback model",projectedCount:0,rankedCount:0};
+  try{
+    const raw=await get("data/projections.json?v=2.9"),rows=Array.isArray(raw)?raw:(raw.players||[]);
+    let projected=0,ranked=0;
+    for(const x of rows){
+      const sid=String(x.sleeper_id??x.player_id??"");
+      if(!sid)continue;
+      S.projections[sid]=x;
+      if(Number.isFinite(Number(x.points_half??x.half_ppr_points??x.projected_points??x.points)))projected++;
+      if(Number.isFinite(Number(x.rank_ecr??x.ecr_rank)))ranked++;
+    }
+    if(Object.keys(S.projections).length){
+      S.projectionMeta={available:true,source:raw.source||"FantasyPros",updated_at:raw.updated_at||null,projectedCount:projected,rankedCount:ranked,total:Object.keys(S.projections).length};
+    }
+  }catch{}
+}
 function projection(id){return S.projections[String(id)]||null}
 function projectedPoints(id){const p=projection(id);if(!p)return null;const v=Number(p.points_half??p.half_ppr_points??p.projected_points??p.points);return Number.isFinite(v)?v:null}
+
+function ecrRank(id){const p=projection(id);if(!p)return null;const v=Number(p.rank_ecr??p.ecr_rank);return Number.isFinite(v)&&v>0?v:null}
+function ecrProductionScore(id){
+  const rank=ecrRank(id);if(rank==null)return null;
+  const p=pos(id);
+  const ranks=Object.keys(S.projections).filter(x=>pos(x)===p&&ecrRank(x)!=null).map(ecrRank).sort((a,b)=>a-b);
+  if(!ranks.length)return null;
+  const idx=ranks.findIndex(x=>x===rank);
+  return clamp(100-(idx/Math.max(1,ranks.length-1))*100,0,100);
+}
+
 function roleScore(id){const p=player(id),pr=projection(id);if(pr&&Number.isFinite(Number(pr.role_score)))return clamp(Number(pr.role_score),0,100);let s=50;if(p.active===false)s-=45;if(!p.team)s-=25;const inj=String(p.injury_status||"").toUpperCase();if(["IR","PUP","OUT"].includes(inj))s-=22;else if(["DOUBTFUL","D"].includes(inj))s-=12;else if(["QUESTIONABLE","Q"].includes(inj))s-=5;const d=Number(p.depth_chart_order);if(d===1)s+=25;else if(d===2)s+=10;else if(d>=3)s-=8;return clamp(s,0,100)}
-function fallbackProductionScore(id){const mv=value(id),role=roleScore(id),all=(S.rosters||[]).flatMap(r=>r.players||[]).map(value).filter(v=>v>0),mvPct=percentile(mv,all);return clamp(mvPct*.65+role*.35,0,100)}
-function playerProductionScore(id){const pp=projectedPoints(id);if(pp!=null){const same=(S.rosters||[]).flatMap(r=>r.players||[]).filter(x=>pos(x)===pos(id)).map(projectedPoints).filter(x=>x!=null),projPct=percentile(pp,same);return clamp(projPct*.85+roleScore(id)*.15,0,100)}return fallbackProductionScore(id)}
+function fallbackProductionScore(id){
+  const e=ecrProductionScore(id);
+  if(e!=null)return clamp(e*.80+roleScore(id)*.20,0,100);
+  const mv=value(id),role=roleScore(id),all=(S.rosters||[]).flatMap(r=>r.players||[]).map(value).filter(v=>v>0),mvPct=percentile(mv,all);
+  return clamp(mvPct*.55+role*.45,0,100);
+}
+function playerProductionScore(id){
+  const pp=projectedPoints(id);
+  if(pp!=null){
+    const same=(S.rosters||[]).flatMap(r=>r.players||[]).filter(x=>pos(x)===pos(id)).map(projectedPoints).filter(x=>x!=null);
+    const projPct=percentile(pp,same);
+    const e=ecrProductionScore(id);
+    return clamp(projPct*.75+(e??projPct)*.15+roleScore(id)*.10,0,100);
+  }
+  return fallbackProductionScore(id);
+}
 function playerTier(id){const s=playerProductionScore(id);if(s>=88)return["Elite","tier-elite"];if(s>=72)return["Strong Starter","tier-starter"];if(s>=55)return["Flex / Usable","tier-flex"];if(s>=35)return["Depth","tier-depth"];return["Fringe","tier-fringe"]}
 function replacementLevel(p){const ids=(S.rosters||[]).flatMap(r=>r.players||[]).filter(id=>pos(id)===p),vals=ids.map(id=>playerProductionScore(id)).sort((a,b)=>b-a),mult={QB:1.1,RB:2.5,WR:3,TE:1.2}[p]||1.5,idx=Math.min(vals.length-1,Math.max(0,Math.round(S.rosters.length*mult)-1));return vals[idx]??40}
 function vorpScore(id){return Math.max(0,playerProductionScore(id)-replacementLevel(pos(id)))}
@@ -231,7 +273,7 @@ function projectedStarterStrength(r){const ids=optimizedStarterIds(r);return ids
 function starterVorp(r){return optimizedStarterIds(r).reduce((n,id)=>n+vorpScore(id),0)}
 function depthQuality(r){const d=usableDepthIds(r),t=Math.max(4,Math.round(starterSlots().length*.45));return clamp(d.length/t*100,0,100)}
 function nflRoleSecurity(r){const ids=optimizedStarterIds(r);return ids.length?ids.reduce((n,id)=>n+roleScore(id),0)/ids.length:0}
-function intelligenceSummary(r){return optimizedStarterIds(r).sort((a,b)=>playerProductionScore(b)-playerProductionScore(a)).slice(0,8).map(id=>({id,name:player(id).full_name||market(id).name||id,pos:pos(id),projected:projectedPoints(id),production:playerProductionScore(id),role:roleScore(id),vorp:vorpScore(id),tier:playerTier(id)}))}
+function intelligenceSummary(r){return optimizedStarterIds(r).sort((a,b)=>playerProductionScore(b)-playerProductionScore(a)).slice(0,10).map(id=>({id,name:player(id).full_name||market(id).name||id,pos:pos(id),projected:projectedPoints(id),ecr:ecrRank(id),production:playerProductionScore(id),role:roleScore(id),vorp:vorpScore(id),tier:playerTier(id)}))}
 
 /* V2.7 */
 function positionLeagueRank(r,p){const a=S.rosters.map(x=>({id:x.roster_id,v:positionValue(x,p)})).sort((a,b)=>b.v-a.v);return a.findIndex(x=>Number(x.id)===Number(r.roster_id))+1}
@@ -447,7 +489,7 @@ function renderLegacy(){
 }
 
 /* ---------- V2.4 UI ---------- */
-function renderRosters(){const teams=winNowPower();if(!teams.length)return`<div class=panel>No rosters.</div>`;if(!S.selectedTeam||!teams.some(x=>Number(x.r.roster_id)===Number(S.selectedTeam)))S.selectedTeam=teams[0].r.roster_id;const x=teams.find(q=>Number(q.r.roster_id)===Number(S.selectedTeam)),m=x.m,d=teamMetrics(x.r),rank=teams.indexOf(x)+1,intel=intelligenceSummary(x.r);return`<div class=panel><h2>2026 Power Rankings</h2><div class=notice><b>Production-first rankings:</b> 55% projected starter strength, 15% value over replacement, 15% usable depth, 10% NFL role security, 5% dynasty market signal.</div><div class=rank-gate-note><b>Label calibration:</b> contender labels also require a top league rank. A low-ranked roster can no longer be called a Championship Favorite or Strong Contender simply because its raw score crosses a threshold.</div><div class=data-health><div class=data-health-card><small>Projection Layer</small><b>${S.projectionMeta.available?"Real projections loaded":"Projection API not configured"}</b></div><div class=data-health-card><small>Market Layer</small><b>${Object.keys(S.market).length?"Loaded":"Unavailable"}</b></div><div class=data-health-card><small>NFL Role Layer</small><b>Sleeper metadata</b></div></div><div class=team-selector>${teams.map((q,i)=>`<button class="team-select-btn ${q===x?"active":""}" data-rid=${q.r.roster_id}><b>#${i+1} ${esc(q.name)}</b><small>${esc(q.m.label)} • ${q.m.score}/100</small></button>`).join("")}</div><div class=team-detail><div class=power-rank>#${rank} of ${teams.length}</div><h2>${esc(x.name)}</h2><div class=win-score>${m.score}<small>/100</small></div><div class=window>${esc(m.label)}</div><div class=analytics-grid><div class=analytics-stat><span>Starter Production</span><b>${Math.round(m.starterProd)}</b></div><div class=analytics-stat><span>Starter VORP</span><b>${Math.round(m.vorp)}</b></div><div class=analytics-stat><span>Usable Depth</span><b>${Math.round(m.depth)}/100</b></div><div class=analytics-stat><span>Role Security</span><b>${Math.round(m.role)}/100</b></div></div><h3>Position Groups</h3>${["QB","RB","WR","TE"].map(p=>{const r=m.posRanks[p],l=positionLabel(r,teams.length);return`<div class=position-rank><div><div class=position-label>${p}: ${l[0]}</div><div class=position-desc>${l[1]}</div></div><b>#${r} of ${teams.length}</b></div>`}).join("")}<h3>Most Relevant 2026 Starters</h3><div style="overflow:auto"><table class=player-intel-table><thead><tr><th>Player</th><th>Pos</th><th>Fantasy Tier</th><th>Projected Pts</th><th>Production</th><th>Role</th><th>Above Replacement</th></tr></thead><tbody>${intel.map(p=>`<tr><td><b>${esc(p.name)}</b></td><td>${p.pos}</td><td><span class="role-chip ${p.tier[1]}">${p.tier[0]}</span></td><td>${p.projected==null?"—":Math.round(p.projected)}</td><td>${Math.round(p.production)}/100</td><td>${Math.round(p.role)}/100</td><td>${Math.round(p.vorp)}</td></tr>`).join("")}</tbody></table></div><div class=source-note>${S.projectionMeta.available?`Projection source: ${esc(S.projectionMeta.source)}`:"Real projection data is not loaded yet. This roster is using the fallback market + NFL-role model. Add the FantasyPros API key as a GitHub Actions secret to activate true 2026 half-PPR projections."}</div><div class=outlook-box><b>Dynasty Outlook: ${esc(d.window)} — ${d.score}/100</b><div class=muted>Long-term dynasty value remains separate.</div></div></div></div>`}
+function renderRosters(){const teams=winNowPower();if(!teams.length)return`<div class=panel>No rosters.</div>`;if(!S.selectedTeam||!teams.some(x=>Number(x.r.roster_id)===Number(S.selectedTeam)))S.selectedTeam=teams[0].r.roster_id;const x=teams.find(q=>Number(q.r.roster_id)===Number(S.selectedTeam)),m=x.m,d=teamMetrics(x.r),rank=teams.indexOf(x)+1,intel=intelligenceSummary(x.r);return`<div class=panel><h2>2026 Power Rankings</h2><div class=notice><b>Production-first rankings:</b> 55% projected starter strength, 15% value over replacement, 15% usable depth, 10% NFL role security, 5% dynasty market signal.</div><div class=rank-gate-note><b>Label calibration:</b> contender labels also require a top league rank. A low-ranked roster can no longer be called a Championship Favorite or Strong Contender simply because its raw score crosses a threshold.</div><div class=data-health><div class=data-health-card><small>Player Intelligence</small><b>${S.projectionMeta.available?"FantasyPros loaded":"Projection API not configured"}</b></div><div class=data-health-card><small>Market Layer</small><b>${Object.keys(S.market).length?"Loaded":"Unavailable"}</b></div><div class=data-health-card><small>NFL Role Layer</small><b>Sleeper metadata</b></div></div><div class=coverage-grid><div class=coverage-card><small>Players with projections</small><b>${S.projectionMeta.projectedCount||0}</b></div><div class=coverage-card><small>Players with ECR</small><b>${S.projectionMeta.rankedCount||0}</b></div><div class=coverage-card><small>Total mapped players</small><b>${S.projectionMeta.total||0}</b></div></div><div class=team-selector>${teams.map((q,i)=>`<button class="team-select-btn ${q===x?"active":""}" data-rid=${q.r.roster_id}><b>#${i+1} ${esc(q.name)}</b><small>${esc(q.m.label)} • ${q.m.score}/100</small></button>`).join("")}</div><div class=team-detail><div class=power-rank>#${rank} of ${teams.length}</div><h2>${esc(x.name)}</h2><div class=win-score>${m.score}<small>/100</small></div><div class=window>${esc(m.label)}</div><div class=analytics-grid><div class=analytics-stat><span>Starter Production</span><b>${Math.round(m.starterProd)}</b></div><div class=analytics-stat><span>Starter VORP</span><b>${Math.round(m.vorp)}</b></div><div class=analytics-stat><span>Usable Depth</span><b>${Math.round(m.depth)}/100</b></div><div class=analytics-stat><span>Role Security</span><b>${Math.round(m.role)}/100</b></div></div><h3>Position Groups</h3>${["QB","RB","WR","TE"].map(p=>{const r=m.posRanks[p],l=positionLabel(r,teams.length);return`<div class=position-rank><div><div class=position-label>${p}: ${l[0]}</div><div class=position-desc>${l[1]}</div></div><b>#${r} of ${teams.length}</b></div>`}).join("")}<h3>Most Relevant 2026 Starters</h3><div style="overflow:auto"><table class=player-intel-table><thead><tr><th>Player</th><th>Pos</th><th>Fantasy Tier</th><th>Projected Pts</th><th>ECR</th><th>Production</th><th>Role</th><th>Above Replacement</th></tr></thead><tbody>${intel.map(p=>`<tr><td><b>${esc(p.name)}</b></td><td>${p.pos}</td><td><span class="role-chip ${p.tier[1]}">${p.tier[0]}</span></td><td>${p.projected==null?"—":Math.round(p.projected)}</td><td>${p.ecr==null?"—":`#${p.ecr}`}</td><td>${Math.round(p.production)}/100</td><td>${Math.round(p.role)}/100</td><td>${Math.round(p.vorp)}</td></tr>`).join("")}</tbody></table></div><div class=source-note>${S.projectionMeta.available?`Projection source: ${esc(S.projectionMeta.source)}`:"Real projection data is not loaded yet. This roster is using the fallback market + NFL-role model. Add the FantasyPros API key as a GitHub Actions secret to activate true 2026 half-PPR projections."}</div><div class=outlook-box><b>Dynasty Outlook: ${esc(d.window)} — ${d.score}/100</b><div class=muted>Long-term dynasty value remains separate.</div></div></div></div>`}
 function renderOverview(){
   const teams=teamPower(),traders=tradePower().slice(0,3);
   return `<div class=grid><div class=card><h3>Teams</h3><div class=metric>${S.rosters.length}</div></div><div class=card><h3>Trades</h3><div class=metric>${S.trades.length}</div></div><div class=card><h3>Seasons</h3><div class=metric>${S.seasons.length}</div></div><div class=card><h3>Market Assets</h3><div class=metric>${Object.keys(S.market).length}</div></div></div>

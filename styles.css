@@ -113,3 +113,10 @@
 .rank-gate-note{margin-top:10px;padding:10px 12px;border:1px solid #324359;border-radius:10px;background:#0b141f;color:#aebed0}
 .api-setup{background:#111a25;border:1px solid #34465c;border-radius:12px;padding:14px;margin-top:14px}
 .api-setup code{color:#9fc6ff}
+
+/* V2.9 Full Player Intelligence */
+.coverage-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:10px;margin:12px 0}
+.coverage-card{background:#0c131c;border:1px solid #2c394a;border-radius:10px;padding:10px}
+.coverage-card small{display:block;color:#8fa0b8;font-size:10px;text-transform:uppercase}
+.coverage-card b{display:block;margin-top:3px;font-size:17px}
+.ecr-chip{display:inline-block;border:1px solid #40516a;border-radius:999px;padding:2px 7px;font-size:11px;color:#b7cae0}
