@@ -62,3 +62,24 @@
 .power-rank{font-size:12px;color:#8fa0b8;text-transform:uppercase;letter-spacing:.07em}
 @media(max-width:900px){.analytics-grid,.pos-grid{grid-template-columns:repeat(2,1fr)}}
 @media(max-width:520px){.analytics-grid,.pos-grid{grid-template-columns:1fr}}
+
+
+/* V2.5 — Draft Intelligence */
+.draft-board{display:grid;gap:12px}
+.draft-pick{border:1px solid #2b3748;border-radius:14px;background:#101722;padding:15px}
+.draft-head{display:flex;justify-content:space-between;gap:10px;align-items:flex-start}
+.draft-head h3{margin:0}
+.pick-badge{display:inline-block;border:1px solid #3a4e65;border-radius:999px;padding:3px 8px;font-size:11px;color:#b9cadb}
+.draft-grade{font-size:22px;font-weight:900}
+.draft-metrics{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-top:12px}
+.draft-metric{background:#0c131c;border:1px solid #263243;border-radius:10px;padding:9px}
+.draft-metric small{display:block;color:#8fa0b8;text-transform:uppercase;font-size:10px}
+.draft-metric b{display:block;margin-top:3px}
+.draft-note{margin-top:10px;padding:10px 12px;background:#0c131c;border-left:3px solid #486787;border-radius:0 9px 9px 0;color:#c7d2df}
+.draft-summary-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:12px}
+.draft-summary-card{background:#101722;border:1px solid #2b3748;border-radius:14px;padding:15px}
+.draft-summary-card h3{margin:0 0 6px}
+.draft-rank{font-size:11px;color:#8fa0b8;text-transform:uppercase}
+.draft-score{font-size:28px;font-weight:900}
+@media(max-width:800px){.draft-metrics{grid-template-columns:repeat(2,1fr)}}
+@media(max-width:500px){.draft-metrics{grid-template-columns:1fr}}

@@ -1,5 +1,5 @@
 const LEAGUE_ID="1327325072385409024",API="https://api.sleeper.app/v1",MARKET_URL="https://www.dynastydealer.com/api/player-values",CACHE=86400000,HISTORY_MAX=8;
-const S={tab:"overview",users:[],rosters:[],drafts:[],picks:[],trades:[],players:{},market:{},seasons:[],league:null,tradedPicks:[]};
+const S={tab:"overview",users:[],rosters:[],drafts:[],picks:[],trades:[],players:{},market:{},seasons:[],league:null,tradedPicks:[],historicalDrafts:[]};
 const $=s=>document.querySelector(s),esc=x=>String(x??"").replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c])),fmt=x=>x==null?"—":Number(x).toLocaleString();
 const clamp=(x,a,b)=>Math.max(a,Math.min(b,x));
 const grade=s=>s>=93?"A+":s>=88?"A":s>=83?"A-":s>=78?"B+":s>=72?"B":s>=66?"B-":s>=60?"C+":s>=54?"C":s>=48?"C-":s>=40?"D":"F";
@@ -132,6 +132,88 @@ function teamPower(){
   return S.rosters.map(r=>({r,m:teamMetrics(r),name:user(r.owner_id)})).sort((a,b)=>b.m.score-a.m.score);
 }
 
+
+/* ---------- V2.5 draft intelligence ---------- */
+function draftPickExpectedValue(p){
+  const pickNo=Number(p.pick_no||0);
+  if(!pickNo)return 0;
+  // Smooth 12-team rookie-pick curve: early firsts premium, declining through round 4.
+  const round=Math.ceil(pickNo/12);
+  const slot=((pickNo-1)%12)+1;
+  const roundBase={1:7600,2:3600,3:1900,4:1000}[round]||600;
+  const decay={1:0.055,2:0.045,3:0.035,4:0.03}[round]||0.03;
+  return Math.round(roundBase*Math.exp(-decay*(slot-1)));
+}
+function draftPickContextScore(p){
+  const actual=value(p.player_id);
+  const expected=draftPickExpectedValue(p);
+  const delta=expected?((actual-expected)/expected)*100:0;
+  return {actual,expected,delta};
+}
+function draftGradeForPick(p){
+  const c=draftPickContextScore(p);
+  const rid=Number(p.roster_id);
+  const r=roster(rid);
+  const draftedPos=pos(p.player_id);
+  const posPct=teamMetrics(r).posPct[draftedPos]??50;
+  let fit=0;
+  if(posPct<=30)fit=6;
+  else if(posPct<=45)fit=3;
+  else if(posPct>=75)fit=-3;
+  const currentBonus=clamp(c.delta/8,-12,12);
+  const score=clamp(75+fit+currentBonus,0,100);
+  return {score,grade:grade(score),fit,...c};
+}
+function draftReason(p,g){
+  const parts=[];
+  if(g.delta>=35)parts.push("player currently sits well above the expected value for this draft slot");
+  else if(g.delta>=10)parts.push("player currently exceeds expected slot value");
+  else if(g.delta<=-35)parts.push("player currently trails the expected value for this draft slot");
+  else if(g.delta<=-10)parts.push("player currently sits below expected slot value");
+  else parts.push("current value is close to the expected value for this slot");
+  if(g.fit>=5)parts.push("the pick also addressed a clear roster need");
+  else if(g.fit>=2)parts.push("the pick improved positional balance");
+  else if(g.fit<0)parts.push("the selection added to an already strong position");
+  return parts.join(" • ")+".";
+}
+function draftManagerSummary(){
+  const map={};
+  for(const d of S.historicalDrafts){
+    for(const p of d.picks){
+      const g=draftGradeForPick(p);
+      const name=d.managerName(p.roster_id);
+      const key=`${d.draft_id}-${p.roster_id}`;
+      if(!map[key])map[key]={name,season:d.season,scores:[],count:0};
+      map[key].scores.push(g.score);map[key].count++;
+    }
+  }
+  return Object.values(map).map(x=>({...x,score:x.scores.reduce((a,b)=>a+b,0)/x.scores.length})).sort((a,b)=>b.score-a.score);
+}
+async function loadHistoricalDrafts(){
+  S.historicalDrafts=[];
+  for(const season of S.seasons){
+    let drafts=[];
+    try{drafts=await get(`${API}/league/${season.id}/drafts`)}catch{}
+    for(const d of drafts||[]){
+      let picks=[];
+      try{picks=await get(`${API}/draft/${d.draft_id}/picks`)}catch{}
+      const managerName=(rid)=>{
+        const rr=season.rosters.find(r=>Number(r.roster_id)===Number(rid));
+        const uu=season.users.find(u=>String(u.user_id)===String(rr?.owner_id));
+        return uu?.display_name||uu?.username||`Roster ${rid}`;
+      };
+      S.historicalDrafts.push({
+        draft_id:d.draft_id,
+        season:d.season||season.season,
+        status:d.status,
+        type:d.type,
+        picks,
+        managerName
+      });
+    }
+  }
+}
+
 /* ---------- Trade engine from V2.3.1 ---------- */
 function sides(tx){
   let s={};
@@ -245,10 +327,24 @@ function renderOverview(){
   <div class=panel><h2>Trade Leaders</h2><div class=rank-grid>${traders.map((x,i)=>`<div class=rank-card><div class=rank-num>#${i+1}</div><b>${esc(x.name)}</b><div class=rank-score>${Math.round(x.score)} <span class=grade>${grade(x.score)}</span></div><div class=muted>${x.trades} graded trade${x.trades===1?"":"s"}</div></div>`).join("")||"<p>No trade data yet.</p>"}</div></div>`;
 }
 function renderDraft(){
-  return `<div class=panel><h2>Draft Intelligence</h2><p class=muted>V2.5 will turn this into the full rookie draft grading engine. V2.4 now uses current/future pick ownership inside roster analytics.</p></div>`;
+  if(!S.historicalDrafts.length)return `<div class=panel><h2>Draft Intelligence — V2.5</h2><p class=muted>No Sleeper draft history found yet. Tap Sync Sleeper.</p></div>`;
+  const summaries=draftManagerSummary();
+  const allPicks=S.historicalDrafts.flatMap(d=>d.picks.map(p=>({...p,_season:d.season,_manager:d.managerName(p.roster_id)})));
+  const best=[...allPicks].sort((a,b)=>draftGradeForPick(b).score-draftGradeForPick(a).score)[0];
+  const worst=[...allPicks].sort((a,b)=>draftGradeForPick(a).score-draftGradeForPick(b).score)[0];
+  return `<div class=panel><h2>Draft Intelligence — V2.5</h2>
+    <div class=notice><b>Draft-Day Grade and Current Outcome are separated.</b> Because we do not yet have a compliant historical ADP snapshot source, the grade uses slot expectation + roster fit, while the current outcome shows today's market value. The app does not pretend current values were known on draft day.</div>
+    <div class=draft-summary-grid>
+      ${best?`<div class=draft-summary-card><div class=draft-rank>Best Current Draft Outcome</div><h3>${esc(best._manager)}</h3><div class=draft-score>${draftGradeForPick(best).grade}</div><div class=muted>${esc(player(best.player_id).full_name||best.player_id)} • Pick ${best.pick_no} • ${best._season}</div></div>`:""}
+      ${worst?`<div class=draft-summary-card><div class=draft-rank>Lowest Current Draft Outcome</div><h3>${esc(worst._manager)}</h3><div class=draft-score>${draftGradeForPick(worst).grade}</div><div class=muted>${esc(player(worst.player_id).full_name||worst.player_id)} • Pick ${worst.pick_no} • ${worst._season}</div></div>`:""}
+    </div>
+    <h2 style="margin-top:18px">Manager Draft Rankings</h2>
+    <div class=draft-summary-grid>${summaries.map((x,i)=>`<div class=draft-summary-card><div class=draft-rank>#${i+1} • ${esc(x.season)}</div><h3>${esc(x.name)}</h3><div class=draft-score>${Math.round(x.score)} <span class=grade>${grade(x.score)}</span></div><div class=muted>${x.count} graded pick${x.count===1?"":"s"}</div></div>`).join("")}</div>
+    ${S.historicalDrafts.slice().sort((a,b)=>String(b.season).localeCompare(String(a.season))).map(d=>`<div style="margin-top:22px"><h2>${esc(d.season)} Draft</h2><div class=draft-board>${d.picks.slice().sort((a,b)=>(a.pick_no||0)-(b.pick_no||0)).map(p=>{const g=draftGradeForPick(p),name=d.managerName(p.roster_id);return `<div class=draft-pick><div class=draft-head><div><span class=pick-badge>Pick ${p.pick_no??"—"}</span><h3>${esc(player(p.player_id).full_name||market(p.player_id).name||p.player_id)}</h3><div class=muted>${esc(name)} • ${esc(pos(p.player_id))}</div></div><div class=draft-grade>${g.grade}</div></div><div class=draft-metrics><div class=draft-metric><small>Draft Score</small><b>${Math.round(g.score)}/100</b></div><div class=draft-metric><small>Expected Slot Value</small><b>${fmt(g.expected)}</b></div><div class=draft-metric><small>Current Market</small><b>${fmt(g.actual)}</b></div><div class=draft-metric><small>Value vs Slot</small><b class="${g.delta>=0?"delta-pos":"delta-neg"}">${g.delta>=0?"+":""}${Math.round(g.delta)}%</b></div></div><div class=draft-note>${esc(draftReason(p,g))}</div></div>`}).join("")}</div></div>`).join("")}
+  </div>`;
 }
 function renderHistory(){return `<div class=panel><h2>League History</h2>${S.seasons.map((s,i)=>`<p><b>${esc(s.season)}</b>${i===0?" — Current":""} • ${s.trades} trades • previous league: ${esc(s.previous||"None")}</p>`).join("")}</div>`}
-function renderGrades(){return `<div class=panel><h2>V2.4 Analytics Models</h2><p><b>Trade Grade:</b> market edge, roster need, age/team window and package structure.</p><p><b>Dynasty Team Score:</b> 35% total roster value, 30% optimized starters, 20% future draft capital, 15% youth.</p><p><b>Position Strength:</b> each team's QB/RB/WR/TE value is compared against the league to generate a percentile.</p><p><b>Dynasty Window:</b> Win Now, Contender, Competitive, Ascending, Rebuilding or Reset Needed based on value, starters, youth and picks.</p><div class=notice>These are league-relative analytics, not guarantees of future fantasy performance.</div></div>`}
+function renderGrades(){return `<div class=panel><h2>V2.5 Analytics Models</h2><p><b>Trade Grade:</b> market edge, roster need, age/team window and package structure.</p><p><b>Dynasty Team Score:</b> 35% total roster value, 30% optimized starters, 20% future draft capital, 15% youth.</p><p><b>Draft Grade:</b> expected value for the draft slot + roster fit, with current market outcome shown separately.</p><p><b>Position Strength:</b> each team's QB/RB/WR/TE value is compared against the league to generate a percentile.</p><p><b>Dynasty Window:</b> Win Now, Contender, Competitive, Ascending, Rebuilding or Reset Needed based on value, starters, youth and picks.</p><div class=notice>These are league-relative analytics, not guarantees of future fantasy performance.</div></div>`}
 function render(){
   let html={overview:renderOverview,trades:()=>renderTrades()+renderTradePower(),draft:renderDraft,rosters:renderRosters,history:renderHistory,grades:renderGrades}[S.tab]?.()||renderOverview();
   $("#app").innerHTML=html;
@@ -261,8 +357,8 @@ async function sync(){
     try{S.tradedPicks=await get(`${API}/league/${LEAGUE_ID}/traded_picks`)}catch{S.tradedPicks=[]}
     S.players=await cache("dhq_players",`${API}/players/nfl`);
     S.market={};try{let raw=await cache("dhq_market",MARKET_URL);for(let x of(Array.isArray(raw)?raw:(raw.players||[])))if(x.sleeper_id!=null)S.market[x.sleeper_id]=x}catch{}
-    S.trades=[];S.seasons=[];let id=LEAGUE_ID;for(let i=0;i<HISTORY_MAX&&id;i++){let s=await loadSeason(id);if(!s)break;id=s.previous}
-    st.textContent=`Synced • ${S.rosters.length} teams • ${S.trades.length} trades • ${S.seasons.length} seasons`;
+    S.trades=[];S.seasons=[];let id=LEAGUE_ID;for(let i=0;i<HISTORY_MAX&&id;i++){let s=await loadSeason(id);if(!s)break;id=s.previous};await loadHistoricalDrafts()
+    st.textContent=`Synced • ${S.rosters.length} teams • ${S.trades.length} trades • ${S.historicalDrafts.reduce((n,d)=>n+d.picks.length,0)} draft picks • ${S.seasons.length} seasons`;
     render();
   }catch(e){st.textContent=`Sync failed: ${e.message}`}
 }
