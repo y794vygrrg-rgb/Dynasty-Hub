@@ -124,3 +124,13 @@
 /* V2.9.1 coverage calibration */
 .coverage-warning{margin:10px 0;padding:11px 12px;border:1px solid #5b4930;border-radius:10px;background:#1b1710;color:#e7d7b8}
 .coverage-good{margin:10px 0;padding:11px 12px;border:1px solid #28533a;border-radius:10px;background:#0e1b14;color:#bfe3ca}
+
+/* V2.9.2 League Intelligence + Confidence */
+.confidence-chip{display:inline-block;border-radius:999px;padding:3px 8px;font-size:11px;border:1px solid #40516a}
+.conf-a{color:#69d58f;border-color:#2e6a47}.conf-b{color:#9cc7ff;border-color:#365d83}.conf-c{color:#e7ce83;border-color:#765f28}.conf-d{color:#ff9a9a;border-color:#754040}
+.confidence-panel{margin-top:12px;border:1px solid #314156;border-radius:12px;padding:12px;background:#0c131c}
+.coverage-breakdown{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-top:10px}
+.coverage-breakdown div{border:1px solid #2b3748;border-radius:9px;padding:8px;text-align:center}
+.coverage-breakdown small{display:block;color:#8fa0b8;font-size:10px;text-transform:uppercase}
+.coverage-breakdown b{display:block;margin-top:2px}
+@media(max-width:650px){.coverage-breakdown{grid-template-columns:repeat(2,1fr)}}
