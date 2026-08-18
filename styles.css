@@ -40,3 +40,25 @@
   letter-spacing:.11em;
   color:#92a6bf;
 }
+
+
+/* V2.4 — roster intelligence */
+.team-rankings{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:14px}
+.team-card{border:1px solid #2b3748;border-radius:14px;background:#101722;padding:16px}
+.team-card h3{margin:0 0 4px;display:flex;justify-content:space-between;gap:10px;align-items:center}
+.team-score{font-size:30px;font-weight:900;margin:8px 0}
+.window{display:inline-block;border:1px solid #3a4c61;border-radius:999px;padding:3px 8px;font-size:11px;color:#b8c8da}
+.analytics-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-top:12px}
+.analytics-stat{border:1px solid #263243;border-radius:10px;padding:10px;background:#0c131c}
+.analytics-stat span{display:block;color:#8fa0b8;font-size:11px;text-transform:uppercase;letter-spacing:.05em}
+.analytics-stat b{display:block;margin-top:3px;font-size:16px}
+.pos-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-top:12px}
+.pos-box{border:1px solid #283545;border-radius:10px;padding:10px;background:#0c131c}
+.pos-box strong{display:block;font-size:15px}.pos-box small{color:#8fa0b8}
+.strength{color:#65d48a}.weakness{color:#ff8d8d}.neutral{color:#b9c5d4}
+.rec{margin-top:12px;border-left:3px solid #4d6a89;padding:10px 12px;background:#0c131c;border-radius:0 9px 9px 0;color:#c8d3df}
+.capital-row{display:flex;justify-content:space-between;gap:10px;padding:7px 0;border-bottom:1px solid #24303f}
+.capital-chip{display:inline-block;border:1px solid #34475d;border-radius:999px;padding:2px 7px;font-size:11px;margin:2px;color:#b9c9da}
+.power-rank{font-size:12px;color:#8fa0b8;text-transform:uppercase;letter-spacing:.07em}
+@media(max-width:900px){.analytics-grid,.pos-grid{grid-template-columns:repeat(2,1fr)}}
+@media(max-width:520px){.analytics-grid,.pos-grid{grid-template-columns:1fr}}
