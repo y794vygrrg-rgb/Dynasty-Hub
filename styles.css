@@ -120,3 +120,7 @@
 .coverage-card small{display:block;color:#8fa0b8;font-size:10px;text-transform:uppercase}
 .coverage-card b{display:block;margin-top:3px;font-size:17px}
 .ecr-chip{display:inline-block;border:1px solid #40516a;border-radius:999px;padding:2px 7px;font-size:11px;color:#b7cae0}
+
+/* V2.9.1 coverage calibration */
+.coverage-warning{margin:10px 0;padding:11px 12px;border:1px solid #5b4930;border-radius:10px;background:#1b1710;color:#e7d7b8}
+.coverage-good{margin:10px 0;padding:11px 12px;border:1px solid #28533a;border-radius:10px;background:#0e1b14;color:#bfe3ca}
