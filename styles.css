@@ -108,3 +108,8 @@
 
 /* V2.8 Player Intelligence */
 .data-health{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:10px;margin:12px 0 18px}.data-health-card{background:#0c131c;border:1px solid #293646;border-radius:11px;padding:11px}.data-health-card small{display:block;color:#8fa0b8;text-transform:uppercase;font-size:10px}.data-health-card b{display:block;margin-top:4px}.player-intel-table{width:100%;border-collapse:collapse}.player-intel-table th,.player-intel-table td{padding:9px;border-bottom:1px solid #27303d;text-align:left}.player-intel-table th{font-size:11px;color:#8fa0b8;text-transform:uppercase}.role-chip{display:inline-block;border:1px solid #384a60;border-radius:999px;padding:2px 7px;font-size:11px}.tier-elite{color:#65d48a}.tier-starter{color:#9bc2ff}.tier-flex{color:#e7ce83}.tier-depth{color:#a6b2c2}.tier-fringe{color:#ff9090}.source-note{font-size:12px;color:#8fa0b8;margin-top:8px}
+
+/* V2.8.1 */
+.rank-gate-note{margin-top:10px;padding:10px 12px;border:1px solid #324359;border-radius:10px;background:#0b141f;color:#aebed0}
+.api-setup{background:#111a25;border:1px solid #34465c;border-radius:12px;padding:14px;margin-top:14px}
+.api-setup code{color:#9fc6ff}
