@@ -134,3 +134,17 @@
 .coverage-breakdown small{display:block;color:#8fa0b8;font-size:10px;text-transform:uppercase}
 .coverage-breakdown b{display:block;margin-top:2px}
 @media(max-width:650px){.coverage-breakdown{grid-template-columns:repeat(2,1fr)}}
+
+/* V3.0 — Unified Intelligence */
+.hero-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:14px;margin-bottom:18px}
+.hero-card{background:#101722;border:1px solid #2b3748;border-radius:14px;padding:16px}
+.hero-card small{display:block;color:#8fa0b8;text-transform:uppercase;font-size:10px;letter-spacing:.07em}
+.hero-card .big{font-size:30px;font-weight:900;margin-top:4px}
+.engine-pill{display:inline-block;border:1px solid #42617e;border-radius:999px;padding:3px 8px;font-size:11px;color:#b9d1e8}
+.score-stack{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-top:12px}
+.score-stack div{background:#0c131c;border:1px solid #293646;border-radius:10px;padding:9px}
+.score-stack small{display:block;color:#8fa0b8;font-size:10px;text-transform:uppercase}
+.score-stack b{display:block;margin-top:3px}
+.unified-table{width:100%;border-collapse:collapse}.unified-table th,.unified-table td{padding:9px;border-bottom:1px solid #27303d;text-align:left}.unified-table th{font-size:11px;color:#8fa0b8;text-transform:uppercase}
+.trade-intel-note{margin-top:8px;padding:9px 11px;border-radius:9px;background:#0c131c;color:#b9c7d5}
+@media(max-width:650px){.score-stack{grid-template-columns:1fr}}
