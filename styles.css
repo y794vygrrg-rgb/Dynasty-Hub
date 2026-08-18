@@ -83,3 +83,22 @@
 .draft-score{font-size:28px;font-weight:900}
 @media(max-width:800px){.draft-metrics{grid-template-columns:repeat(2,1fr)}}
 @media(max-width:500px){.draft-metrics{grid-template-columns:1fr}}
+
+
+/* V2.6 — League Legacy & Manager Analytics */
+.legacy-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(250px,1fr));gap:14px}
+.legacy-card{background:#101722;border:1px solid #2b3748;border-radius:14px;padding:16px}
+.legacy-card h3{margin:2px 0 8px}
+.legacy-rank{font-size:11px;color:#8fa0b8;text-transform:uppercase;letter-spacing:.08em}
+.legacy-score{font-size:34px;font-weight:900;line-height:1}
+.legacy-components{display:grid;grid-template-columns:repeat(4,1fr);gap:7px;margin-top:12px}
+.legacy-component{background:#0c131c;border:1px solid #263243;border-radius:9px;padding:8px;text-align:center}
+.legacy-component small{display:block;color:#8fa0b8;font-size:9px;text-transform:uppercase}
+.legacy-component b{display:block;margin-top:2px}
+.awards{display:grid;grid-template-columns:repeat(auto-fit,minmax(210px,1fr));gap:12px}
+.award{background:#101722;border:1px solid #2b3748;border-radius:14px;padding:15px}
+.award-label{font-size:10px;color:#8fa0b8;text-transform:uppercase;letter-spacing:.08em}
+.award-name{font-size:18px;font-weight:800;margin-top:4px}
+.record-table{width:100%;border-collapse:collapse}.record-table th,.record-table td{padding:9px;border-bottom:1px solid #27303d;text-align:left}.record-table th{font-size:11px;color:#8fa0b8;text-transform:uppercase}
+.manager-detail{margin-top:10px;padding:10px;background:#0c131c;border-radius:10px;color:#c5d0dc}
+@media(max-width:700px){.legacy-components{grid-template-columns:repeat(2,1fr)}}

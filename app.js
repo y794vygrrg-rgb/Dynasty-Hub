@@ -291,6 +291,117 @@ function renderTradePower(){
   return `<div class=panel><h2>Trade Power Rankings</h2><table class=power-table><thead><tr><th>Rank</th><th>Manager</th><th>Score</th><th>Grade</th><th>Trades</th></tr></thead><tbody>${rows.map((x,i)=>`<tr><td>${i+1}</td><td><b>${esc(x.name)}</b></td><td>${Math.round(x.score)}</td><td>${grade(x.score)}</td><td>${x.trades}</td></tr>`).join("")}</tbody></table></div>`;
 }
 
+
+/* ---------- V2.6 League Legacy ---------- */
+function normalizeManagerName(name){return String(name||"Unknown").trim()}
+function currentManagerByName(name){
+  const n=normalizeManagerName(name).toLowerCase();
+  return S.rosters.find(r=>normalizeManagerName(user(r.owner_id)).toLowerCase()===n);
+}
+function managerHistory(){
+  const map={};
+  for(const s of S.seasons){
+    for(const r of s.rosters||[]){
+      const name=histUser(s,r.roster_id),key=normalizeManagerName(name).toLowerCase();
+      if(!map[key])map[key]={name,seasons:0,wins:0,losses:0,ties:0,points:0,playoffs:0};
+      const x=map[key],set=r.settings||{};
+      x.seasons++;
+      x.wins+=Number(set.wins||0);x.losses+=Number(set.losses||0);x.ties+=Number(set.ties||0);
+      x.points+=Number(set.fpts||0)+(Number(set.fpts_decimal||0)/100);
+      if(Number(set.rank||99)<=6)x.playoffs++;
+    }
+  }
+  return map;
+}
+function currentTradeScores(){
+  const by={};
+  for(const t of S.trades){
+    const z=sides(t);
+    for(const [rid,x] of Object.entries(z)){
+      const r=t._season?.rosters.find(q=>Number(q.roster_id)===Number(rid))||roster(rid);
+      const name=t._season?histUser(t._season,rid):user(r?.owner_id);
+      const k=normalizeManagerName(name).toLowerCase(),c=score(r,x);
+      if(!by[k])by[k]={scores:[],count:0,best:null,worst:null};
+      by[k].scores.push(c.sc);by[k].count++;
+      const rec={score:c.sc,grade:c.grade,date:t.created?new Date(t.created).toLocaleDateString():"Unknown"};
+      if(!by[k].best||rec.score>by[k].best.score)by[k].best=rec;
+      if(!by[k].worst||rec.score<by[k].worst.score)by[k].worst=rec;
+    }
+  }
+  for(const k of Object.keys(by))by[k].avg=by[k].scores.reduce((a,b)=>a+b,0)/by[k].scores.length;
+  return by;
+}
+function currentDraftScores(){
+  const by={};
+  for(const d of S.historicalDrafts||[]){
+    for(const p of d.picks||[]){
+      const name=d.managerName(p.roster_id),k=normalizeManagerName(name).toLowerCase(),g=draftGradeForPick(p);
+      if(!by[k])by[k]={scores:[],count:0,best:null,worst:null};
+      by[k].scores.push(g.score);by[k].count++;
+      const rec={score:g.score,grade:g.grade,player:player(p.player_id).full_name||p.player_id,pick:p.pick_no,season:d.season};
+      if(!by[k].best||rec.score>by[k].best.score)by[k].best=rec;
+      if(!by[k].worst||rec.score<by[k].worst.score)by[k].worst=rec;
+    }
+  }
+  for(const k of Object.keys(by))by[k].avg=by[k].scores.reduce((a,b)=>a+b,0)/by[k].scores.length;
+  return by;
+}
+function legacyRankings(){
+  const hist=managerHistory(),tr=currentTradeScores(),dr=currentDraftScores(),team=teamPower();
+  const teamBy={};for(const x of team)teamBy[normalizeManagerName(x.name).toLowerCase()]=x.m.score;
+  const keys=new Set([...Object.keys(hist),...Object.keys(tr),...Object.keys(dr),...Object.keys(teamBy)]);
+  const rows=[];
+  for(const k of keys){
+    const h=hist[k]||{name:k,seasons:0,wins:0,losses:0,ties:0,points:0,playoffs:0};
+    const games=h.wins+h.losses+h.ties,winPct=games?(h.wins+.5*h.ties)/games:0.5;
+    const recordScore=clamp(45+winPct*45+(h.seasons?Math.min(10,(h.playoffs/h.seasons)*10):0),0,100);
+    const rosterScore=teamBy[k]??50,tradeScore=tr[k]?.avg??50,draftScore=dr[k]?.avg??50;
+    const overall=Math.round(rosterScore*.35+tradeScore*.25+draftScore*.20+recordScore*.20);
+    rows.push({key:k,name:h.name||k,overall,rosterScore,tradeScore,draftScore,recordScore,history:h,trades:tr[k],drafts:dr[k]});
+  }
+  return rows.sort((a,b)=>b.overall-a.overall);
+}
+function leagueAwards(rows){
+  if(!rows.length)return[];
+  const maxBy=f=>[...rows].sort((a,b)=>f(b)-f(a))[0];
+  const trade=maxBy(x=>x.tradeScore),draft=maxBy(x=>x.draftScore),roster=maxBy(x=>x.rosterScore),record=maxBy(x=>x.recordScore);
+  const rebuild=[...rows].filter(x=>{const r=currentManagerByName(x.name);return r&&direction(r)==="rebuild"}).sort((a,b)=>b.rosterScore-a.rosterScore)[0];
+  return [
+    ["Overall Dynasty GM",rows[0]?.name,`${rows[0]?.overall}/100`],
+    ["Trade King",trade?.name,`${Math.round(trade?.tradeScore||0)}/100`],
+    ["Draft Guru",draft?.name,`${Math.round(draft?.draftScore||0)}/100`],
+    ["Best Current Roster",roster?.name,`${Math.round(roster?.rosterScore||0)}/100`],
+    ["Best Historical Record",record?.name,`${Math.round(record?.recordScore||0)}/100`],
+    ...(rebuild?[["Best Rebuilder",rebuild.name,`${Math.round(rebuild.rosterScore)}/100 roster score`]]:[])
+  ];
+}
+function renderLegacy(){
+  const rows=legacyRankings(),awards=leagueAwards(rows);
+  return `<div class=panel><h2>League Legacy — V2.6</h2>
+    <div class=notice><b>Current Power and Legacy are separate.</b> Overall GM score blends current roster construction (35%), trade history (25%), draft history (20%) and Sleeper historical record (20%). Missing categories use a neutral baseline rather than inventing data.</div>
+    <h2>League Awards</h2><div class=awards>${awards.map(a=>`<div class=award><div class=award-label>${esc(a[0])}</div><div class=award-name>${esc(a[1]||"—")}</div><div class=muted>${esc(a[2]||"")}</div></div>`).join("")}</div>
+    <h2 style="margin-top:22px">All-Time Manager Rankings</h2>
+    <div class=legacy-grid>${rows.map((x,i)=>`<div class=legacy-card>
+      <div class=legacy-rank>#${i+1} Overall GM</div><h3>${esc(x.name)}</h3><div class=legacy-score>${x.overall}<small>/100</small></div>
+      <div class=legacy-components>
+        <div class=legacy-component><small>Roster</small><b>${Math.round(x.rosterScore)}</b></div>
+        <div class=legacy-component><small>Trades</small><b>${Math.round(x.tradeScore)}</b></div>
+        <div class=legacy-component><small>Draft</small><b>${Math.round(x.draftScore)}</b></div>
+        <div class=legacy-component><small>Record</small><b>${Math.round(x.recordScore)}</b></div>
+      </div>
+      <div class=manager-detail>
+        <b>Historical record:</b> ${x.history.wins}-${x.history.losses}${x.history.ties?`-${x.history.ties}`:""} across ${x.history.seasons} season${x.history.seasons===1?"":"s"}<br>
+        <b>Playoff-rate proxy:</b> ${x.history.seasons?Math.round((x.history.playoffs/x.history.seasons)*100):0}%<br>
+        <b>Trades graded:</b> ${x.trades?.count||0} • <b>Draft picks graded:</b> ${x.drafts?.count||0}
+      </div>
+    </div>`).join("")}</div>
+    <h2 style="margin-top:22px">Manager Record Table</h2>
+    <div style="overflow:auto"><table class=record-table><thead><tr><th>Rank</th><th>Manager</th><th>Overall</th><th>Record</th><th>Roster</th><th>Trades</th><th>Draft</th></tr></thead><tbody>
+      ${rows.map((x,i)=>`<tr><td>${i+1}</td><td><b>${esc(x.name)}</b></td><td>${x.overall}</td><td>${x.history.wins}-${x.history.losses}</td><td>${Math.round(x.rosterScore)}</td><td>${Math.round(x.tradeScore)}</td><td>${Math.round(x.draftScore)}</td></tr>`).join("")}
+    </tbody></table></div>
+  </div>`;
+}
+
 /* ---------- V2.4 UI ---------- */
 function renderRosters(){
   const teams=teamPower();
@@ -344,9 +455,9 @@ function renderDraft(){
   </div>`;
 }
 function renderHistory(){return `<div class=panel><h2>League History</h2>${S.seasons.map((s,i)=>`<p><b>${esc(s.season)}</b>${i===0?" — Current":""} • ${s.trades} trades • previous league: ${esc(s.previous||"None")}</p>`).join("")}</div>`}
-function renderGrades(){return `<div class=panel><h2>V2.5 Analytics Models</h2><p><b>Trade Grade:</b> market edge, roster need, age/team window and package structure.</p><p><b>Dynasty Team Score:</b> 35% total roster value, 30% optimized starters, 20% future draft capital, 15% youth.</p><p><b>Draft Grade:</b> expected value for the draft slot + roster fit, with current market outcome shown separately.</p><p><b>Position Strength:</b> each team's QB/RB/WR/TE value is compared against the league to generate a percentile.</p><p><b>Dynasty Window:</b> Win Now, Contender, Competitive, Ascending, Rebuilding or Reset Needed based on value, starters, youth and picks.</p><div class=notice>These are league-relative analytics, not guarantees of future fantasy performance.</div></div>`}
+function renderGrades(){return `<div class=panel><h2>V2.6 Analytics Models</h2><p><b>Trade Grade:</b> market edge, roster need, age/team window and package structure.</p><p><b>Dynasty Team Score:</b> 35% total roster value, 30% optimized starters, 20% future draft capital, 15% youth.</p><p><b>Draft Grade:</b> expected value for the draft slot + roster fit, with current market outcome shown separately.</p><p><b>Overall GM / Legacy Score:</b> 35% current roster, 25% trade history, 20% draft history and 20% Sleeper historical record.</p><p><b>Position Strength:</b> each team's QB/RB/WR/TE value is compared against the league to generate a percentile.</p><p><b>Dynasty Window:</b> Win Now, Contender, Competitive, Ascending, Rebuilding or Reset Needed based on value, starters, youth and picks.</p><div class=notice>These are league-relative analytics, not guarantees of future fantasy performance.</div></div>`}
 function render(){
-  let html={overview:renderOverview,trades:()=>renderTrades()+renderTradePower(),draft:renderDraft,rosters:renderRosters,history:renderHistory,grades:renderGrades}[S.tab]?.()||renderOverview();
+  let html={overview:renderOverview,trades:()=>renderTrades()+renderTradePower(),draft:renderDraft,rosters:renderRosters,history:renderHistory,legacy:renderLegacy,grades:renderGrades}[S.tab]?.()||renderOverview();
   $("#app").innerHTML=html;
   document.querySelectorAll("nav button").forEach(b=>b.classList.toggle("active",b.dataset.tab===S.tab));
 }
