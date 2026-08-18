@@ -81,14 +81,37 @@ function assetHTML(a){
 }
 function reason(c){
   const parts=[];
-  if(c.edge>=5)parts.push("won on market value");
-  else if(c.edge<=-5)parts.push("paid a market-value premium");
-  if(c.need>=4)parts.push("filled a positional need");
-  else if(c.need<=-2)parts.push("added to an already strong position");
-  if(c.adj>=3)parts.push(c.dir==="rebuild"?"improved the age curve for a rebuild":"added assets in the contender window");
-  else if(c.adj<=-3)parts.push("took on an age-profile mismatch");
-  if(!parts.length)parts.push("was close to market-neutral with modest team-fit impact");
-  return parts.join(", ")+".";
+
+  if(c.edge>=8) parts.push(`Strong market-value win (+${c.edge.toFixed(1)} grade points)`);
+  else if(c.edge>=3) parts.push(`Positive market-value edge (+${c.edge.toFixed(1)} grade points)`);
+  else if(c.edge<=-8) parts.push(`Significant market-value premium paid (${c.edge.toFixed(1)} grade points)`);
+  else if(c.edge<=-3) parts.push(`Small market-value premium paid (${c.edge.toFixed(1)} grade points)`);
+  else parts.push(`Near market-value neutral (${c.edge>=0?"+":""}${c.edge.toFixed(1)} grade points)`);
+
+  if(c.need>=5) parts.push("fills a clear positional weakness");
+  else if(c.need>=2) parts.push("improves positional balance");
+  else if(c.need<=-2) parts.push("adds to a position that was already relatively strong");
+
+  if(c.adj>=4){
+    parts.push(c.dir==="rebuild"
+      ?"meaningfully improves the team's age curve for a rebuild"
+      :"adds assets that fit the contender window");
+  }else if(c.adj>=2){
+    parts.push(c.dir==="rebuild"
+      ?"slightly improves the team's age curve"
+      :"fits the team's competitive window");
+  }else if(c.adj<=-4){
+    parts.push(c.dir==="rebuild"
+      ?"works against the rebuilding timeline"
+      :"creates a notable age-profile concern");
+  }else if(c.adj<=-2){
+    parts.push("has a modest age-profile drawback");
+  }
+
+  if(c.volume>0) parts.push("also receives slightly more total asset value");
+  if(c.packageAdj>0) parts.push("gets a small package-structure bonus");
+
+  return parts.join(" • ")+".";
 }
 function tradePower(){
   const map={};
@@ -144,7 +167,7 @@ function renderTrade(t){
         <div class=label>Received</div>${assetHTML(q.x.received)}
         <div class=label>Sent</div>${assetHTML(q.x.sent)}
         <div class=bar><i style="width:${q.c.sc}%"></i></div>
-        <div class=explain>${esc(reason(q.c))}</div>
+        
       </div>${i===0?`<div class=trade-arrow>⇄</div>`:""}`).join("")}
     </div>
   </div>`;
