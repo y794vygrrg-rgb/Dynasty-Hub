@@ -1,5 +1,5 @@
 const LEAGUE_ID="1327325072385409024",API="https://api.sleeper.app/v1",MARKET_URL="https://www.dynastydealer.com/api/player-values",CACHE=86400000,HISTORY_MAX=8;
-const S={tab:"overview",users:[],rosters:[],drafts:[],picks:[],trades:[],players:{},market:{},seasons:[],league:null,tradedPicks:[],historicalDrafts:[],tradeTeam:"all",tradeYear:"all",draftTeam:"all",draftYear:"all",selectedTeam:null,projections:{},projectionMeta:{available:false,source:"Fallback model"}};
+const S={tab:"overview",users:[],rosters:[],drafts:[],picks:[],trades:[],players:{},market:{},seasons:[],league:null,tradedPicks:[],historicalDrafts:[],tradeTeam:"all",tradeYear:"all",draftTeam:"all",draftYear:"all",selectedTeam:null,projections:{},projectionMeta:{available:false,source:"Fallback model"},insightsCache:null};
 const $=s=>document.querySelector(s),esc=x=>String(x??"").replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c])),fmt=x=>x==null?"—":Number(x).toLocaleString();
 const clamp=(x,a,b)=>Math.max(a,Math.min(b,x));
 const grade=s=>s>=93?"A+":s>=88?"A":s>=83?"A-":s>=78?"B+":s>=72?"B":s>=66?"B-":s>=60?"C+":s>=54?"C":s>=48?"C-":s>=40?"D":"F";
@@ -464,14 +464,57 @@ function managerTendency(r){
   if(young>=10)label+=" • Youth Builder"; else if(veteran>=7)label+=" • Veteran Heavy";
   return{label,tradeCount,draftCount};
 }
-function renderInsights(){
+
+function buildInsightsCache(){
   const rows=winNowPower();
+  const byRoster={};
+  const posMap={};
+  for(const x of rows)posMap[x.r.roster_id]=positionStrengths(x.r);
+
+  for(const x of rows){
+    const ps=posMap[x.r.roster_id],best=ps[0],worst=ps[ps.length-1],strategy=teamStrategy(x.r),conf=rosterConfidence(x.r),tend=managerTendency(x.r);
+    const partners=rows.filter(y=>y.r.roster_id!==x.r.roster_id).map(y=>{
+      const op=posMap[y.r.roster_id],need=worst.position,strong=best.position;
+      const gives=op.find(z=>z.position===need)?.score||0;
+      const wants=100-(op.find(z=>z.position===strong)?.score||50);
+      return{other:y.r,score:gives*.65+wants*.35,need,strong};
+    }).sort((a,b)=>b.score-a.score).slice(0,3);
+    byRoster[x.r.roster_id]={
+      row:x,
+      insight:{best,worst,strategy,conf,current:x.m.score,dynasty:teamDynastyScore(x.r)},
+      partners,tendency:tend
+    };
+  }
+
+  const superRows=rows.map(x=>({
+    r:x.r,name:x.name,current:x.m.score,
+    dynasty:teamDynastyScore(x.r),
+    young:rosterYoungCoreScore(x.r),
+    depth:rosterDepthScore(x.r),
+    market:(x.r.players||[]).reduce((n,id)=>n+value(id),0)
+  }));
+  const max=k=>[...superRows].sort((a,b)=>b[k]-a[k])[0];
+  const sleeper=[...superRows].sort((a,b)=>(b.current-b.dynasty)-(a.current-a.dynasty))[0];
+  const supers=[
+    ["Best 2026 Roster",max("current")],
+    ["Best Dynasty Outlook",max("dynasty")],
+    ["Best Young Core",max("young")],
+    ["Deepest Roster",max("depth")],
+    ["Most Market Value",max("market")],
+    ["Sleeper Contender",sleeper]
+  ];
+  S.insightsCache={rows,byRoster,supers};
+  return S.insightsCache;
+}
+function getInsightsCache(){return S.insightsCache||buildInsightsCache();}
+
+function renderInsights(){
+  const cache=getInsightsCache(),rows=cache.rows;
   const selected=rows.find(x=>String(x.r.roster_id)===String(S.selectedRosterId))||rows[0];
   if(!selected)return `<div class=panel><h2>League Insights</h2><p>Sync Sleeper to generate insights.</p></div>`;
-  const x=selected,ins=teamInsight(x.r),partners=naturalPartners(x.r),tend=managerTendency(x.r);
-  const supers=leagueSuperlatives();
-  return `<div class=panel><h2>League Insights <span class=engine-pill>V3.1</span></h2>
-    <div class=notice><b>Front-office analysis:</b> these recommendations use the same Current, Dynasty, Unified and confidence-adjusted scores that power Rosters, Trades and Drafts.</div>
+  const pack=cache.byRoster[selected.r.roster_id],x=pack.row,ins=pack.insight,partners=pack.partners,tend=pack.tendency,supers=cache.supers;
+  return `<div class=panel><h2>League Insights <span class=engine-pill>V3.1.1</span></h2>
+    <div class=notice><b>Mobile-optimized front-office analysis:</b> league-wide calculations are cached after sync, so switching teams no longer recomputes the entire analytics engine.</div>
     <div class=team-selector>${rows.map(y=>`<button class="${y.r.roster_id===x.r.roster_id?"active":""}" onclick="S.selectedRosterId=${y.r.roster_id};render()">${esc(y.name)}</button>`).join("")}</div>
     <div class=insight-grid>
       <div class=insight-card><div class=insight-kicker>Team Direction</div><h3>${ins.strategy.label}</h3><p>${ins.strategy.text}</p><span class=insight-tag>2026 ${ins.current}/100</span><span class=insight-tag>Dynasty ${ins.dynasty}/100</span><span class="insight-tag ${confidenceClass(ins.conf.grade)}">${ins.conf.label} confidence</span></div>
@@ -724,7 +767,7 @@ async function sync(){
     S.players=await cache("dhq_players",`${API}/players/nfl`);await loadProjectionData();
     S.market={};try{let raw=await cache("dhq_market",MARKET_URL);for(let x of(Array.isArray(raw)?raw:(raw.players||[])))if(x.sleeper_id!=null)S.market[x.sleeper_id]=x}catch{}
     S.trades=[];S.seasons=[];let id=LEAGUE_ID;for(let i=0;i<HISTORY_MAX&&id;i++){let s=await loadSeason(id);if(!s)break;id=s.previous};await loadHistoricalDrafts()
-    st.textContent=`Synced • ${S.rosters.length} teams • ${S.trades.length} trades • ${S.historicalDrafts.reduce((n,d)=>n+d.picks.length,0)} draft picks • ${S.seasons.length} seasons`;
+    S.insightsCache=null;st.textContent=`Synced • ${S.rosters.length} teams • ${S.trades.length} trades • ${S.historicalDrafts.reduce((n,d)=>n+d.picks.length,0)} draft picks • ${S.seasons.length} seasons`;
     render();
   }catch(e){st.textContent=`Sync failed: ${e.message}`}
 }

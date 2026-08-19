@@ -159,3 +159,6 @@
 .super-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:10px}
 .super-card{background:#101722;border:1px solid #2c394a;border-radius:12px;padding:12px}
 .super-card small{display:block;color:#8fa0b8;text-transform:uppercase;font-size:10px}.super-card b{display:block;margin-top:5px}
+
+/* V3.1.1 mobile performance */
+.loading-lite{padding:18px;text-align:center;color:#8fa0b8}.insight-card,.super-card,.card{content-visibility:auto;contain-intrinsic-size:220px}
