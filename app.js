@@ -217,7 +217,7 @@ async function loadProjectionData(){
   S.projections={};
   S.projectionMeta={available:false,source:"Fallback model",projectedCount:0,rankedCount:0};
   try{
-    const raw=await get("data/projections.json?v=3.0"),rows=Array.isArray(raw)?raw:(raw.players||[]);
+    const raw=await get("data/projections.json?v=4.0"),rows=Array.isArray(raw)?raw:(raw.players||[]);
     let projected=0,ranked=0;
     for(const x of rows){
       const sid=String(x.sleeper_id??x.player_id??"");
@@ -508,24 +508,70 @@ function buildInsightsCache(){
 }
 function getInsightsCache(){return S.insightsCache||buildInsightsCache();}
 
+
+function playerAction(id,r){
+  const cur=currentSeasonPlayerScore(id),dyn=dynastyPlayerScore(id),a=age(id),strategy=teamStrategy(r).label;
+  if(strategy.includes("Contend")||strategy.includes("Buyer")){
+    if(cur>=72&&dyn<cur-7)return{label:"BUY",cls:"buy",why:"2026 impact outpaces long-term price"};
+    if(dyn>=76&&cur>=66)return{label:"HOLD",cls:"hold",why:"cornerstone for both windows"};
+    if(a!=null&&a>=29&&cur<62)return{label:"SELL",cls:"sell",why:"veteran value is not helping the starting lineup enough"};
+  }else{
+    if(dyn>=72&&a!=null&&a<=25)return{label:"HOLD",cls:"hold",why:"young value fits the team timeline"};
+    if(a!=null&&a>=27&&cur>=64)return{label:"SELL",cls:"sell",why:"convert current production into younger value"};
+    if(dyn>=70)return{label:"BUY",cls:"buy",why:"long-term profile fits the rebuild"};
+  }
+  return{label:"HOLD",cls:"hold",why:"value and roster timeline are aligned"};
+}
+function teamPlayerActions(r){
+  const pri={BUY:0,SELL:1,HOLD:2};
+  return (r?.players||[]).map(String).map(id=>({id,a:playerAction(id,r),u:unifiedPlayerScore(id)}))
+    .sort((x,y)=>pri[x.a.label]-pri[y.a.label]||y.u-x.u).slice(0,8);
+}
+function tradeTargetsFor(r){
+  const need=teamInsight(r).worst.position,c=[];
+  for(const other of S.rosters){
+    if(other.roster_id===r.roster_id)continue;
+    const strength=positionStrengths(other).find(x=>x.position===need);
+    if(!strength||strength.score<55)continue;
+    for(const id of (other.players||[]).map(String).filter(id=>pos(id)===need)){
+      const u=unifiedPlayerScore(id),cur=currentSeasonPlayerScore(id);
+      if(u>=52)c.push({id,other,u,cur});
+    }
+  }
+  return c.sort((a,b)=>(b.cur*.6+b.u*.4)-(a.cur*.6+a.u*.4)).slice(0,6);
+}
+function tradeFrameworks(r){
+  const targets=tradeTargetsFor(r);
+  const mine=(r.players||[]).map(String).sort((a,b)=>unifiedPlayerScore(b)-unifiedPlayerScore(a));
+  return targets.slice(0,4).map(t=>{
+    const tv=unifiedPlayerScore(t.id);
+    const give=mine.filter(id=>pos(id)!==pos(t.id)).sort((a,b)=>Math.abs(unifiedPlayerScore(a)-tv)-Math.abs(unifiedPlayerScore(b)-tv))[0];
+    return{target:t,give};
+  });
+}
+function renderTradeFinder(){
+  const rows=winNowPower();if(!rows.length)return`<div class=panel><h2>Trade Finder</h2><p>Sync Sleeper first.</p></div>`;
+  if(!S.selectedTeam)S.selectedTeam=rows[0].r.roster_id;
+  const x=rows.find(y=>Number(y.r.roster_id)===Number(S.selectedTeam))||rows[0],ideas=tradeFrameworks(x.r),need=teamInsight(x.r).worst.position;
+  return `<div class=panel><h2>Trade Finder <span class=release-badge>V4.0 RC</span></h2><div class=notice><b>Smart frameworks, not forced trades.</b> Targets are generated from your biggest roster need, the other team's positional strength, and the same Unified Player Intelligence used everywhere else.</div><div class=team-selector>${rows.map(y=>`<button class="team-select-btn ${y===x?"active":""}" data-rid="${y.r.roster_id}"><b>${esc(y.name)}</b></button>`).join("")}</div><h3>${esc(x.name)} should explore ${need} upgrades</h3>${ideas.length?ideas.map(i=>`<div class=trade-idea><small>TARGET FROM ${esc(user(i.target.other.owner_id))}</small><b>${esc(player(i.target.id).full_name||market(i.target.id).name||i.target.id)}</b><div class=muted>Unified ${Math.round(i.target.u)} • 2026 ${Math.round(i.target.cur)}</div>${i.give?`<p>Framework starting point: <b>${esc(player(i.give).full_name||market(i.give).name||i.give)}</b> as the primary outgoing asset, then balance with picks/secondary pieces based on market value.</p>`:""}</div>`).join(""):`<div class=card>No strong partner surfaced for this position yet.</div>`}</div>`;
+}
+
 function renderInsights(){
   const cache=getInsightsCache(),rows=cache.rows;
-  const selected=rows.find(x=>String(x.r.roster_id)===String(S.selectedRosterId))||rows[0];
-  if(!selected)return `<div class=panel><h2>League Insights</h2><p>Sync Sleeper to generate insights.</p></div>`;
-  const pack=cache.byRoster[selected.r.roster_id],x=pack.row,ins=pack.insight,partners=pack.partners,tend=pack.tendency,supers=cache.supers;
-  return `<div class=panel><h2>League Insights <span class=engine-pill>V3.1.1</span></h2>
-    <div class=notice><b>Mobile-optimized front-office analysis:</b> league-wide calculations are cached after sync, so switching teams no longer recomputes the entire analytics engine.</div>
-    <div class=team-selector>${rows.map(y=>`<button class="${y.r.roster_id===x.r.roster_id?"active":""}" onclick="S.selectedRosterId=${y.r.roster_id};render()">${esc(y.name)}</button>`).join("")}</div>
-    <div class=insight-grid>
-      <div class=insight-card><div class=insight-kicker>Team Direction</div><h3>${ins.strategy.label}</h3><p>${ins.strategy.text}</p><span class=insight-tag>2026 ${ins.current}/100</span><span class=insight-tag>Dynasty ${ins.dynasty}/100</span><span class="insight-tag ${confidenceClass(ins.conf.grade)}">${ins.conf.label} confidence</span></div>
-      <div class=insight-card><div class=insight-kicker>Biggest Strength</div><h3>${ins.best.position} • ${ins.best.score}/100</h3><p>${ins.best.ids.slice(0,3).map(id=>esc(player(id).full_name||market(id).name||id)).join(", ")||"No players"}</p></div>
-      <div class=insight-card><div class=insight-kicker>Biggest Need</div><h3>${ins.worst.position} • ${ins.worst.score}/100</h3><p>Prioritize meaningful upgrades here before adding redundant depth at stronger positions.</p></div>
-      <div class=insight-card><div class=insight-kicker>GM Profile</div><h3>${tend.label}</h3><p>${tend.tradeCount} historical trades analyzed • ${tend.draftCount} historical draft selections loaded.</p></div>
+  const selected=rows.find(x=>String(x.r.roster_id)===String(S.selectedTeam))||rows[0];
+  if(!selected)return `<div class=panel><h2>Front Office</h2><p>Sync Sleeper to generate insights.</p></div>`;
+  S.selectedTeam=selected.r.roster_id;
+  const pack=cache.byRoster[selected.r.roster_id],x=pack.row,ins=pack.insight,partners=pack.partners,tend=pack.tendency,actions=teamPlayerActions(x.r);
+  return `<div class=panel><h2>Front Office <span class=release-badge>V4.0 RC</span></h2>
+    <div class=team-selector>${rows.map(y=>`<button class="team-select-btn ${y.r.roster_id===x.r.roster_id?"active":""}" data-rid="${y.r.roster_id}"><b>${esc(y.name)}</b></button>`).join("")}</div>
+    <div class=action-grid>
+      <div class=action-card><small>Team Direction</small><b>${ins.strategy.label}</b><p>${ins.strategy.text}</p></div>
+      <div class=action-card><small>Biggest Strength</small><b>${ins.best.position} • ${ins.best.score}/100</b><p>${ins.best.ids.slice(0,3).map(id=>esc(player(id).full_name||market(id).name||id)).join(", ")}</p></div>
+      <div class=action-card><small>Biggest Need</small><b>${ins.worst.position} • ${ins.worst.score}/100</b><p>Prioritize a real starter upgrade here.</p></div>
+      <div class=action-card><small>GM Profile</small><b>${tend.label}</b><p>${tend.tradeCount} trades • ${tend.draftCount} picks analyzed</p></div>
     </div>
-    <h3 style="margin-top:22px">Natural Trade Partners</h3>
-    <div class=card>${partners.map(p=>`<div class=partner-row><div><b>${esc(x.name)}</b><div class=muted>Needs ${p.need}</div></div><div>⇄</div><div><b>${esc(user(p.other.owner_id))}</b><div class=muted>Strong ${p.need} profile / potential ${p.strong} need</div></div></div>`).join("")}</div>
-    <h3 style="margin-top:22px">League Superlatives</h3>
-    <div class=super-grid>${supers.map(([label,y])=>`<div class=super-card><small>${label}</small><b>${esc(y?.name||"—")}</b></div>`).join("")}</div>
+    <h3>Buy • Sell • Hold</h3><div class=card>${actions.map(z=>`<div class=player-action><div><b>${esc(player(z.id).full_name||market(z.id).name||z.id)}</b><div class=muted>${z.a.why}</div></div><b class="${z.a.cls}">${z.a.label}</b></div>`).join("")}</div>
+    <h3>Natural Trade Partners</h3><div class=card>${partners.map(p=>`<div class=partner-row><div><b>${esc(x.name)}</b><div class=muted>Needs ${p.need}</div></div><div>⇄</div><div><b>${esc(user(p.other.owner_id))}</b><div class=muted>Strong ${p.need} profile</div></div></div>`).join("")}</div>
   </div>`;
 }
 
@@ -722,18 +768,13 @@ function renderLegacy(){
 /* ---------- V2.4 UI ---------- */
 function renderRosters(){const teams=winNowPower();if(!teams.length)return`<div class=panel>No rosters.</div>`;if(!S.selectedTeam||!teams.some(x=>Number(x.r.roster_id)===Number(S.selectedTeam)))S.selectedTeam=teams[0].r.roster_id;const x=teams.find(q=>Number(q.r.roster_id)===Number(S.selectedTeam)),m=x.m,d=teamMetrics(x.r),rank=teams.indexOf(x)+1,intel=intelligenceSummary(x.r);return`<div class=panel><h2>2026 Power Rankings</h2><div class=notice><span class=engine-pill>V3.0 Unified Engine</span><br><b>Production-first rankings:</b> 55% projected starter strength, 15% value over replacement, 15% usable depth, 10% NFL role security, 5% dynasty market signal.</div><div class=rank-gate-note><b>Label calibration:</b> contender labels also require a top league rank. A low-ranked roster can no longer be called a Championship Favorite or Strong Contender simply because its raw score crosses a threshold.</div><div class=data-health><div class=data-health-card><small>Player Intelligence</small><b>${S.projectionMeta.available?"FantasyPros loaded":"Projection API not configured"}</b></div><div class=data-health-card><small>Market Layer</small><b>${Object.keys(S.market).length?"Loaded":"Unavailable"}</b></div><div class=data-health-card><small>NFL Role Layer</small><b>Sleeper metadata</b></div></div><div class=coverage-grid><div class=coverage-card><small>Players with projections</small><b>${S.projectionMeta.projectedCount||0}</b></div><div class=coverage-card><small>Players with HALF ECR</small><b>${S.projectionMeta.rankedCount||0}</b></div><div class=coverage-card><small>Total mapped players</small><b>${S.projectionMeta.total||0}</b></div><div class=coverage-card><small>Direct roster coverage</small><b>${x.conf.directPct}%</b></div></div>${x.conf.directPct>=75?`<div class=coverage-good><b>High data coverage.</b> Most of this roster is directly supported by FantasyPros projections/ECR.</div>`:`<div class=coverage-warning><b>Partial data coverage.</b> Low-confidence estimates are automatically shrunk toward neutral so they cannot overpower the ranking.</div>`}<div class=team-selector>${teams.map((q,i)=>`<button class="team-select-btn ${q===x?"active":""}" data-rid=${q.r.roster_id}><b>#${i+1} ${esc(q.name)}</b><small>${esc(q.m.label)} • ${q.m.score}/100</small></button>`).join("")}</div><div class=team-detail><div class=power-rank>#${rank} of ${teams.length}</div><h2>${esc(x.name)}</h2><div class=win-score>${m.score}<small>/100</small></div><div class=window>${esc(m.label)}</div><div class=confidence-panel><b>Data Confidence: ${x.conf.label} (${x.conf.directPct}% direct coverage)</b><div class=muted>Power scores are confidence-adjusted. Estimated and limited players are pulled toward a neutral baseline so missing data cannot dominate a ranking.</div><div class=coverage-breakdown><div><small>A • Full</small><b>${x.conf.counts.A}</b></div><div><small>B • Strong</small><b>${x.conf.counts.B}</b></div><div><small>C • Estimated</small><b>${x.conf.counts.C}</b></div><div><small>D • Limited</small><b>${x.conf.counts.D}</b></div></div></div><div class=analytics-grid><div class=analytics-stat><span>Starter Production</span><b>${Math.round(m.starterProd)}</b></div><div class=analytics-stat><span>Starter VORP</span><b>${Math.round(m.vorp)}</b></div><div class=analytics-stat><span>Usable Depth</span><b>${Math.round(m.depth)}/100</b></div><div class=analytics-stat><span>Role Security</span><b>${Math.round(m.role)}/100</b></div></div><h3>Position Groups</h3>${["QB","RB","WR","TE"].map(p=>{const r=m.posRanks[p],l=positionLabel(r,teams.length);return`<div class=position-rank><div><div class=position-label>${p}: ${l[0]}</div><div class=position-desc>${l[1]}</div></div><b>#${r} of ${teams.length}</b></div>`}).join("")}<h3>Most Relevant 2026 Starters</h3><div style="overflow:auto"><table class=player-intel-table><thead><tr><th>Player</th><th>Pos</th><th>Confidence</th><th>2026</th><th>Dynasty</th><th>Unified</th><th>Projected Pts</th><th>ECR</th></tr></thead><tbody>${intel.map(p=>`<tr><td><b>${esc(p.name)}</b></td><td>${p.pos}</td><td><span class="confidence-chip ${confidenceClass(p.confidence.grade)}">${p.confidence.grade} • ${p.confidence.label}</span></td><td>${Math.round(currentSeasonPlayerScore(p.id))}</td><td>${Math.round(dynastyPlayerScore(p.id))}</td><td><b>${Math.round(unifiedPlayerScore(p.id))}</b></td><td>${p.projected==null?"—":Math.round(p.projected)}</td><td>${p.ecr==null?"—":`#${p.ecr}`}</td></tr>`).join("")}</tbody></table></div><div class=source-note>${S.projectionMeta.available?`Projection source: ${esc(S.projectionMeta.source)}`:"Real projection data is not loaded yet. This roster is using the fallback market + NFL-role model. Add the FantasyPros API key as a GitHub Actions secret to activate true 2026 half-PPR projections."}</div><div class=outlook-box><b>Dynasty Outlook: ${esc(d.window)} — ${d.score}/100</b><div class=muted>Long-term dynasty value remains separate.</div></div></div></div>`}
 function renderOverview(){
-  const current=winNowPower();
-  const dynasty=S.rosters.map(r=>({name:user(r.owner_id),score:teamDynastyScore(r)})).sort((a,b)=>b.score-a.score);
-  const legacy=typeof legacyRankings==="function"?legacyRankings():[];
-  const topCurrent=current[0],topDynasty=dynasty[0],topLegacy=legacy[0];
-  return `<div class=panel><h2>Dynasty League HQ — V3.1</h2><div class=notice><b>One intelligence engine now powers Rosters, Trades and Drafts.</b> Current-season production, dynasty market value, NFL role, positional scarcity and data confidence are handled consistently across the app.</div>
-    <div class=hero-grid>
-      <div class=hero-card><small>2026 Power Leader</small><div class=big>${esc(topCurrent?.name||"—")}</div><div class=muted>${topCurrent?`${topCurrent.m.score}/100 • ${topCurrent.m.label}`:""}</div></div>
-      <div class=hero-card><small>Dynasty Outlook Leader</small><div class=big>${esc(topDynasty?.name||"—")}</div><div class=muted>${topDynasty?`${topDynasty.score}/100 long-term`:""}</div></div>
-      <div class=hero-card><small>All-Time GM Leader</small><div class=big>${esc(topLegacy?.name||"—")}</div><div class=muted>${topLegacy?`${topLegacy.overall}/100 legacy`:""}</div></div>
-    </div>
-    <div class=grid><div class=card><h3>Teams</h3><div class=metric>${S.rosters.length}</div></div><div class=card><h3>Trades</h3><div class=metric>${S.trades.length}</div></div><div class=card><h3>Drafts Loaded</h3><div class=metric>${S.historicalDrafts.length}</div></div><div class=card><h3>FantasyPros Mapped</h3><div class=metric>${S.projectionMeta.total||0}</div></div></div>
-  </div>`;
+  const current=winNowPower(),dynasty=S.rosters.map(r=>({name:user(r.owner_id),score:teamDynastyScore(r)})).sort((a,b)=>b.score-a.score),legacy=typeof legacyRankings==="function"?legacyRankings():[];
+  const c=current[0],d=dynasty[0],l=legacy[0];
+  return `<div class=panel><div class=hero-art></div><div class=v4-hero-grid>
+    <div class="v4-leader blue"><small>♛ 2026 Power Leader</small><b>${esc(c?.name||"—")}</b><em>${c?`${c.m.score}/100 • ${c.m.label}`:"Sync to calculate"}</em></div>
+    <div class="v4-leader purple"><small>∞ Dynasty Outlook Leader</small><b>${esc(d?.name||"—")}</b><em>${d?`${d.score}/100 long-term`:"Sync to calculate"}</em></div>
+    <div class="v4-leader gold"><small>🏆 All-Time GM Leader</small><b>${esc(l?.name||"—")}</b><em>${l?`${l.overall}/100 legacy`:"Sync to calculate"}</em></div>
+  </div><div class=grid><div class=card><h3>Power Rankings</h3>${current.slice(0,5).map((x,i)=>`<p><b>#${i+1} ${esc(x.name)}</b> <span class=muted>${x.m.score}/100 • ${x.m.label}</span></p>`).join("")}</div><div class=card><h3>League Health</h3><p><b>${S.projectionMeta.projectedCount||0}</b> projected players</p><p><b>${S.projectionMeta.rankedCount||0}</b> HALF ECR players</p><p><b>${S.trades.length}</b> trades loaded</p><p><b>${S.historicalDrafts.reduce((n,x)=>n+(x.picks?.length||0),0)}</b> draft picks analyzed</p></div><div class=card><h3>Quick Actions</h3><p>◎ Open <b>Trade Finder</b> for roster-specific targets.</p><p>💡 Open <b>Front Office</b> for Buy / Sell / Hold.</p><p>♛ Open <b>Power & Rosters</b> for full team analytics.</p></div></div></div>`;
 }
 function renderDraft(){const _fd=filteredDrafts();
   if(!S.historicalDrafts.length)return `<div class=panel><h2>Draft Intelligence</h2>${filterBar("draft")}<p class=muted>No Sleeper draft history found yet. Tap Sync Sleeper.</p></div>`;
@@ -755,9 +796,11 @@ function renderDraft(){const _fd=filteredDrafts();
 function renderHistory(){return `<div class=panel><h2>League History</h2>${S.seasons.map((s,i)=>`<p><b>${esc(s.season)}</b>${i===0?" — Current":""} • ${s.trades} trades • previous league: ${esc(s.previous||"None")}</p>`).join("")}</div>`}
 function renderGrades(){return `<div class=panel><h2>V2.6 Analytics Models</h2><p><b>Trade Grade:</b> market edge, roster need, age/team window and package structure.</p><p><b>Dynasty Team Score:</b> 35% total roster value, 30% optimized starters, 20% future draft capital, 15% youth.</p><p><b>Draft Grade:</b> expected value for the draft slot + roster fit, with current market outcome shown separately.</p><p><b>Overall GM / Legacy Score:</b> 60% historical performance, 25% draft success and 15% trade success.</p><p><b>Position Strength:</b> each team's QB/RB/WR/TE value is compared against the league to generate a percentile.</p><p><b>Dynasty Window:</b> Win Now, Contender, Competitive, Ascending, Rebuilding or Reset Needed based on value, starters, youth and picks.</p><div class=notice>These are league-relative analytics, not guarantees of future fantasy performance.</div></div>`}
 function render(){
-  let html={overview:renderOverview,trades:()=>renderTrades()+renderTradePower(),draft:renderDraft,rosters:renderRosters,history:renderHistory,legacy:renderLegacy,grades:renderGrades}[S.tab]?.()||renderOverview();
+  let html={overview:renderOverview,trades:()=>renderTrades()+renderTradePower(),draft:renderDraft,rosters:renderRosters,tradefinder:renderTradeFinder,insights:renderInsights,history:renderHistory,legacy:renderLegacy,grades:renderGrades}[S.tab]?.()||renderOverview();
   $("#app").innerHTML=html;
-  document.querySelectorAll("nav button").forEach(b=>b.classList.toggle("active",b.dataset.tab===S.tab));if(S.tab==="trades")bindFilters("trade");if(S.tab==="draft")bindFilters("draft");if(S.tab==="rosters")document.querySelectorAll(".team-select-btn").forEach(b=>b.onclick=()=>{S.selectedTeam=Number(b.dataset.rid);render()});
+  document.querySelectorAll("nav button").forEach(b=>b.classList.toggle("active",b.dataset.tab===S.tab));
+  if(S.tab==="trades")bindFilters("trade");if(S.tab==="draft")bindFilters("draft");
+  if(["rosters","insights","tradefinder"].includes(S.tab))document.querySelectorAll(".team-select-btn").forEach(b=>b.onclick=()=>{S.selectedTeam=Number(b.dataset.rid);render()});
 }
 async function sync(){
   let st=$("#status");st.textContent="Syncing current and historical league data…";

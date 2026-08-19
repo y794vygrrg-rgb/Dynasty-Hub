@@ -2,29 +2,38 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Dynasty League HQ — V3.1.1</title>
-<link rel="stylesheet" href="styles.css?v=3.1.1">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#07111f">
+<title>All-Beef Dynasty Hub — V4.0 RC</title>
+<link rel="stylesheet" href="styles.css?v=4.0">
 </head>
 <body>
-<header>
-  <div>
-    <small>SLEEPER DYNASTY INTELLIGENCE</small>
-    <h1>Dynasty League HQ <span>V3.1.1</span></h1>
-    <div id="status">Ready to sync.</div>
-  </div>
-  <button id="sync">Sync Sleeper</button>
-</header>
-<nav>
-  <button data-tab="overview">Overview</button>
-  <button data-tab="trades">Trades</button>
-  <button data-tab="draft">Draft</button>
-  <button data-tab="rosters">Rosters</button><button data-tab="insights">Insights</button>
-  <button data-tab="history">History</button><button data-tab="legacy">Legacy</button>
-  <button data-tab="grades">Grades</button>
-</nav>
-<main id="app"></main>
-<footer>Dynasty League HQ V3.1.1 • Market data: <a href="https://www.dynastydealer.com/" target="_blank">Dynasty Dealer</a></footer>
-<script src="app.js?v=3.1.1"></script>
+<div class="app-shell">
+  <aside class="sidebar">
+    <div class="brand"><img src="assets/all-beef-logo.webp" alt="All-Beef Dynasty League"><div><b>ALL-BEEF</b><small>DYNASTY HUB</small></div></div>
+    <nav>
+      <button data-tab="overview">⌂ <span>Home</span></button>
+      <button data-tab="rosters">♛ <span>Power & Rosters</span></button>
+      <button data-tab="trades">⇄ <span>Trades</span></button>
+      <button data-tab="draft">🏆 <span>Drafts</span></button>
+      <button data-tab="tradefinder">◎ <span>Trade Finder</span></button>
+      <button data-tab="insights">💡 <span>Front Office</span></button>
+      <button data-tab="legacy">♜ <span>Legacy</span></button>
+      <button data-tab="history">◷ <span>History</span></button>
+      <button data-tab="grades">⚙ <span>Models</span></button>
+    </nav>
+    <div class="side-motto">🥩 + 🏋️<b>BEEF BUILDS DYNASTIES</b><small>EST. 2023</small></div>
+  </aside>
+  <section class="main-shell">
+    <header>
+      <div class="league-chip">🥩 12-Team • Half PPR • 1QB</div>
+      <div id="status">Ready to sync.</div>
+      <button id="sync">↻ Sync</button>
+    </header>
+    <main id="app"></main>
+    <footer>ALL-BEEF DYNASTY LEAGUE • BEEF BUILDS DYNASTIES • V4.0 RC</footer>
+  </section>
+</div>
+<script src="app.js?v=4.0"></script>
 </body>
 </html>
